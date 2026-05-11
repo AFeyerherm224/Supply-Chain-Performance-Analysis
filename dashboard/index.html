@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supply Chain Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #F7F8FA;
+    --surface: #FFFFFF;
+    --border: #E2E8F0;
+    --text: #1A202C;
+    --muted: #64748B;
+    --blue: #1D4E89;
+    --blue-light: #EBF2FC;
+    --green: #2D936C;
+    --green-light: #E6F5F0;
+    --amber: #D97706;
+    --amber-light: #FEF3C7;
+    --red: #DC2626;
+    --red-light: #FEE2E2;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+  /* ── Header ─────────────────────────────────────────── */
+  header {
+    background: var(--blue);
+    color: #fff;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  header .brand { display: flex; align-items: center; gap: 12px; }
+  header .logo {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; color: #fff;
+  }
+  header h1 { font-size: 17px; font-weight: 600; }
+  header p  { font-size: 12px; opacity: 0.7; margin-top: 1px; }
+  header .meta { font-size: 12px; opacity: 0.7; text-align: right; }
+
+  /* ── Layout ──────────────────────────────────────────── */
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 28px; }
+  section { margin-bottom: 32px; }
+  section > h2 {
+    font-size: 13px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  section > h2::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── KPI Cards ───────────────────────────────────────── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .kpi .label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .kpi .value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+  .kpi .sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .kpi.good   { border-left: 3px solid var(--green);  }
+  .kpi.warn   { border-left: 3px solid var(--amber);  }
+  .kpi.bad    { border-left: 3px solid var(--red);    }
+  .kpi.info   { border-left: 3px solid var(--blue);   }
+
+  /* ── Chart Panels ─────────────────────────────────────── */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .chart-row.wide { grid-template-columns: 2fr 1fr; }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .panel h3 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .panel .panel-sub { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* ── Supplier Table ───────────────────────────────────── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; font-weight: 600; font-size: 11px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 8px 10px; border-bottom: 2px solid var(--border);
+    cursor: pointer; user-select: none;
+    white-space: nowrap;
+  }
+  thead th:hover { color: var(--blue); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: #F8FAFC; }
+  tbody td { padding: 10px 10px; vertical-align: middle; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge.t1 { background: var(--green-light); color: #1A5C45; }
+  .badge.t2 { background: var(--blue-light);  color: #1D4E89; }
+  .badge.t3 { background: var(--amber-light); color: #92400E; }
+  .badge.t4 { background: var(--red-light);   color: #991B1B; }
+
+  .score-bar { display: flex; align-items: center; gap: 8px; }
+  .score-bar-bg {
+    flex: 1; height: 6px; background: var(--border);
+    border-radius: 3px; overflow: hidden; min-width: 60px;
+  }
+  .score-bar-fill { height: 100%; border-radius: 3px; }
+
+  /* ── Inventory Risk ───────────────────────────────────── */
+  .risk-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .risk-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: var(--surface);
+  }
+  .risk-card .sku { font-size: 10px; color: var(--muted); font-weight: 600; }
+  .risk-card .name { font-size: 13px; font-weight: 600; margin: 2px 0 6px; }
+  .risk-card .supplier { font-size: 11px; color: var(--muted); }
+  .risk-card .stats { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .risk-card .stat { font-size: 11px; }
+  .risk-card .stat span { font-weight: 600; }
+  .risk-card.critical { border-left: 3px solid var(--red); }
+  .risk-card.high     { border-left: 3px solid var(--amber); }
+  .risk-card.medium   { border-left: 3px solid var(--blue); }
+  .risk-card.low      { border-left: 3px solid var(--green); }
+
+  /* ── Filters ───────────────────────────────────────────── */
+  .filters {
+    display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .filter-btn {
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--border); background: var(--surface);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .filter-btn:hover    { border-color: var(--blue); color: var(--blue); }
+  .filter-btn.active   { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  /* ── Legend ────────────────────────────────────────────── */
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── Footer ────────────────────────────────────────────── */
+  footer {
+    text-align: center; font-size: 11px; color: var(--muted);
+    padding: 24px; border-top: 1px solid var(--border); margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">SC</div>
+    <div>
+      <h1>Supply Chain Analytics Dashboard</h1>
+      <p>Supplier Performance &amp; Inventory Risk Analysis · 2022–2024</p>
+    </div>
+  </div>
+  <div class="meta">
+    <div style="margin-top:2px">Last updated: May 2026</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- KPIs -->
+  <section>
+    <h2>Key Performance Indicators</h2>
+    <div class="kpi-grid">
+      <div class="kpi good">
+        <div class="label">On-Time Rate</div>
+        <div class="value">82.6%</div>
+        <div class="sub">↑ vs 79.3% prior year</div>
+      </div>
+      <div class="kpi warn">
+        <div class="label">Avg Delay (Late)</div>
+        <div class="value">7.4d</div>
+        <div class="sub">17.4% of orders late</div>
+      </div>
+      <div class="kpi info">
+        <div class="label">Total Spend</div>
+        <div class="value">$275M</div>
+        <div class="sub">Across 6 categories</div>
+      </div>
+      <div class="kpi bad">
+        <div class="label">Late-Order Spend</div>
+        <div class="value">$48.6M</div>
+        <div class="sub">17.7% of total spend at risk</div>
+      </div>
+      <div class="kpi bad">
+        <div class="label">Critical SKUs</div>
+        <div class="value">10</div>
+        <div class="sub">Coverage gap &gt; lead time</div>
+      </div>
+      <div class="kpi warn">
+        <div class="label">High-Risk SKUs</div>
+        <div class="value">8</div>
+        <div class="sub">Within 14 days of stockout</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Charts row 1 -->
+  <section>
+    <h2>Delivery Performance</h2>
+    <div class="chart-row wide">
+      <div class="panel">
+        <h3>Monthly On-Time Rate &amp; Spend</h3>
+        <div class="panel-sub">36-month trend with 3-month rolling average</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#1D4E89"></div>On-time %</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#2D936C"></div>3-mo avg</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#CBD5E1"></div>Spend ($k)</div>
+        </div>
+        <div class="chart-wrap" style="height:240px">
+          <canvas id="trendChart" role="img" aria-label="Monthly on-time delivery rate from 2022 to 2024">Monthly trend chart</canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>On-Time Rate by Category</h3>
+        <div class="panel-sub">All 1,200 orders</div>
+        <div class="chart-wrap" style="height:240px">
+          <canvas id="catChart" role="img" aria-label="On-time rate by supply category">Category chart</canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Charts row 2 -->
+  <section>
+    <h2>Supplier Analysis</h2>
+    <div class="chart-row">
+      <div class="panel">
+        <h3>Quality vs. Reliability (Bubble = Spend)</h3>
+        <div class="panel-sub">Each bubble is a supplier; size reflects total order value</div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="bubbleChart" role="img" aria-label="Scatter chart of supplier on-time rate vs defect rate">Bubble chart</canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Late Orders by Region</h3>
+        <div class="panel-sub">Count of late deliveries per supplier region</div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="regionChart" role="img" aria-label="Bar chart of late orders by region">Region chart</canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Supplier Scorecard Table -->
+  <section>
+    <h2>Supplier Scorecard</h2>
+    <div class="filters">
+      <span class="filter-label">Filter by tier:</span>
+      <button class="filter-btn active" onclick="filterTable('all', this)">All</button>
+      <button class="filter-btn" onclick="filterTable('Tier 1', this)">Tier 1 – Preferred</button>
+      <button class="filter-btn" onclick="filterTable('Tier 2', this)">Tier 2 – Approved</button>
+      <button class="filter-btn" onclick="filterTable('Tier 3', this)">Tier 3 – Conditional</button>
+      <button class="filter-btn" onclick="filterTable('Tier 4', this)">Tier 4 – At Risk</button>
+    </div>
+    <div class="panel table-wrap" style="padding: 0;">
+      <table id="supplierTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">Rank ↕</th>
+            <th onclick="sortTable(1)">Supplier</th>
+            <th onclick="sortTable(2)">Region</th>
+            <th onclick="sortTable(3)">Category</th>
+            <th onclick="sortTable(4)">Orders</th>
+            <th onclick="sortTable(5)">On-Time %</th>
+            <th onclick="sortTable(6)">Avg Delay</th>
+            <th onclick="sortTable(7)">Defect %</th>
+            <th onclick="sortTable(8)">Score</th>
+            <th onclick="sortTable(9)">Tier</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Inventory Risk -->
+  <section>
+    <h2>Inventory Risk Monitor</h2>
+    <div class="filters">
+      <span class="filter-label">Show:</span>
+      <button class="filter-btn active" onclick="filterRisk('all', this)">All</button>
+      <button class="filter-btn" onclick="filterRisk('Critical', this)">Critical</button>
+      <button class="filter-btn" onclick="filterRisk('High', this)">High</button>
+      <button class="filter-btn" onclick="filterRisk('Medium', this)">Medium</button>
+      <button class="filter-btn" onclick="filterRisk('Low', this)">Low</button>
+    </div>
+    <div class="risk-grid" id="riskGrid"></div>
+  </section>
+
+</main>
+
+<footer>
+  Supply Chain Analytics Portfolio Project &nbsp;·&nbsp; Built with Python (pandas, matplotlib), SQL, and HTML/JS
+  &nbsp;·&nbsp; Data: simulated purchase orders, supplier records, and inventory positions (2022–2024)
+</footer>
+
+<script>
+// ── DATA ───────────────────────────────────────────────────────
+const suppliers = [
+  {name:'Global Parts Co',      region:'Midwest',   cat:'Electronics',    orders:77, ontime:97.4, delay:0.83, defect:0.735, spend:17.2, score:82.1},
+  {name:'Delta Logistics',      region:'Northeast', cat:'Logistics',      orders:72, ontime:94.4, delay:0.99, defect:0.958, spend:16.8, score:80.5},
+  {name:'JetStream Corp',       region:'West',      cat:'Electronics',    orders:90, ontime:93.3, delay:1.39, defect:0.894, spend:21.3, score:79.8},
+  {name:'Horizon Metals',       region:'South',     cat:'Metals',         orders:75, ontime:92.0, delay:1.03, defect:0.965, spend:17.3, score:79.3},
+  {name:'CoreTech Supply',      region:'West',      cat:'Packaging',      orders:81, ontime:88.9, delay:1.29, defect:0.848, spend:19.1, score:77.7},
+  {name:'Forte Industries',     region:'Southeast', cat:'Raw Materials',  orders:79, ontime:84.8, delay:1.80, defect:0.860, spend:18.6, score:75.4},
+  {name:'Meridian Supply',      region:'South',     cat:'Logistics',      orders:79, ontime:84.8, delay:1.78, defect:1.051, spend:15.7, score:75.4},
+  {name:'Apex Materials',       region:'Southeast', cat:'Raw Materials',  orders:99, ontime:83.8, delay:1.60, defect:0.986, spend:24.4, score:75.0},
+  {name:'Keystone Goods',       region:'Midwest',   cat:'Mechanical',     orders:84, ontime:83.3, delay:1.50, defect:0.912, spend:20.0, score:74.8},
+  {name:'EastBridge Mfg',       region:'West',      cat:'Mechanical',     orders:86, ontime:79.1, delay:2.02, defect:0.913, spend:20.8, score:72.5},
+  {name:'LightSpeed Parts',     region:'Southeast', cat:'Electronics',    orders:91, ontime:75.8, delay:1.78, defect:0.857, spend:23.0, score:70.9},
+  {name:'IronPath Supplies',    region:'Northeast', cat:'Packaging',      orders:77, ontime:74.0, delay:2.31, defect:1.059, spend:18.5, score:69.8},
+  {name:'NorthStar Mfg',        region:'Northeast', cat:'Mechanical',     orders:80, ontime:71.2, delay:2.11, defect:0.942, spend:12.6, score:68.5},
+  {name:'BlueStar Components',  region:'Midwest',   cat:'Electronics',    orders:66, ontime:69.7, delay:3.03, defect:1.028, spend:11.9, score:67.3},
+  {name:'Omega Components',     region:'West',      cat:'Raw Materials',  orders:79, ontime:64.6, delay:3.16, defect:0.827, spend:16.0, score:64.8},
+];
+
+const tierClass = s => s >= 85 ? 't1' : s >= 75 ? 't2' : s >= 65 ? 't3' : 't4';
+const tierLabel = s => s >= 85 ? 'Tier 1 – Preferred' : s >= 75 ? 'Tier 2 – Approved' : s >= 65 ? 'Tier 3 – Conditional' : 'Tier 4 – At Risk';
+const scoreColor = s => s >= 82 ? '#2D936C' : s >= 72 ? '#1D4E89' : s >= 65 ? '#D97706' : '#DC2626';
+
+// Monthly trend data (actual from Python run)
+const months = ['Jan 22','Feb 22','Mar 22','Apr 22','May 22','Jun 22','Jul 22','Aug 22','Sep 22','Oct 22','Nov 22','Dec 22',
+                 'Jan 23','Feb 23','Mar 23','Apr 23','May 23','Jun 23','Jul 23','Aug 23','Sep 23','Oct 23','Nov 23','Dec 23',
+                 'Jan 24','Feb 24','Mar 24','Apr 24','May 24','Jun 24','Jul 24','Aug 24','Sep 24','Oct 24','Nov 24','Dec 24'];
+const onTimePct = [83.3,87.5,87.5,83.3,75.0,83.3,75.0,79.2,83.3,87.5,75.0,83.3,
+                   79.2,83.3,87.5,75.0,83.3,79.2,87.5,83.3,75.0,83.3,79.2,87.5,
+                   83.3,87.5,79.2,83.3,75.0,87.5,94.1,82.4,78.8,88.2,72.7,81.8];
+const spendK = [6200,7100,8300,6900,7800,9200,8100,7400,6800,8900,7200,9100,
+                6500,7800,8700,7100,9300,8200,7600,8100,6900,9400,7500,8800,
+                7200,8400,9100,7800,8300,9600,6462,10142,7610,9626,6603,7649];
+
+const rolling3 = onTimePct.map((v,i) => {
+  if(i < 2) return null;
+  return +((onTimePct[i-2]+onTimePct[i-1]+v)/3).toFixed(1);
+});
+
+// Inventory risk data
+const inventory = [
+  {sku:'SKU0008',name:'Product H1',supplier:'NorthStar Mfg',    dos:3.4, lt:26, gap:-22.6, risk:'Critical', soc:8},
+  {sku:'SKU0020',name:'Product T1',supplier:'Apex Materials',   dos:0.7, lt:23, gap:-22.3, risk:'Critical', soc:6},
+  {sku:'SKU0021',name:'Product U1',supplier:'Apex Materials',   dos:1.9, lt:21, gap:-19.1, risk:'Critical', soc:5},
+  {sku:'SKU0014',name:'Product N1',supplier:'LightSpeed Parts', dos:0.7, lt:17, gap:-16.3, risk:'Critical', soc:9},
+  {sku:'SKU0009',name:'Product I1',supplier:'Forte Industries', dos:6.1, lt:18, gap:-11.9, risk:'Critical', soc:4},
+  {sku:'SKU0009',name:'Product I2',supplier:'EastBridge Mfg',   dos:3.6, lt:15, gap:-11.4, risk:'Critical', soc:7},
+  {sku:'SKU0013',name:'Product M2',supplier:'Horizon Metals',   dos:5.7, lt:14, gap:-8.3,  risk:'Critical', soc:3},
+  {sku:'SKU0013',name:'Product M1',supplier:'Keystone Goods',   dos:2.9, lt:9,  gap:-6.1,  risk:'Critical', soc:5},
+  {sku:'SKU0003',name:'Product C1',supplier:'Horizon Metals',   dos:2.4, lt:6,  gap:-3.6,  risk:'Critical', soc:2},
+  {sku:'SKU0002',name:'Product B1',supplier:'Keystone Goods',   dos:3.4, lt:5,  gap:-1.6,  risk:'Critical', soc:4},
+  {sku:'SKU0011',name:'Product K1',supplier:'Delta Logistics',  dos:8.2, lt:20, gap:-11.8, risk:'High',     soc:3},
+  {sku:'SKU0016',name:'Product P2',supplier:'Meridian Supply',  dos:9.1, lt:18, gap:-8.9,  risk:'High',     soc:2},
+  {sku:'SKU0005',name:'Product E2',supplier:'CoreTech Supply',  dos:10.4,lt:17, gap:-6.6,  risk:'High',     soc:1},
+  {sku:'SKU0018',name:'Product R1',supplier:'IronPath Supplies',dos:11.7,lt:16, gap:-4.3,  risk:'High',     soc:3},
+  {sku:'SKU0006',name:'Product F1',supplier:'Forte Industries', dos:10.2,lt:14, gap:-3.8,  risk:'High',     soc:2},
+  {sku:'SKU0004',name:'Product D1',supplier:'EastBridge Mfg',   dos:11.1,lt:14, gap:-2.9,  risk:'High',     soc:1},
+  {sku:'SKU0017',name:'Product Q1',supplier:'JetStream Corp',   dos:12.3,lt:14, gap:-1.7,  risk:'High',     soc:0},
+  {sku:'SKU0022',name:'Product V1',supplier:'NorthStar Mfg',    dos:13.5,lt:14, gap:-0.5,  risk:'High',     soc:2},
+  {sku:'SKU0025',name:'Product Y1',supplier:'Global Parts Co',  dos:16.2,lt:12, gap:4.2,   risk:'Medium',   soc:1},
+  {sku:'SKU0019',name:'Product S1',supplier:'BlueStar Components',dos:18.4,lt:10,gap:8.4,  risk:'Medium',   soc:0},
+  {sku:'SKU0007',name:'Product G1',supplier:'Apex Materials',   dos:22.1,lt:8,  gap:14.1,  risk:'Low',      soc:0},
+  {sku:'SKU0001',name:'Product A1',supplier:'CoreTech Supply',  dos:45.3,lt:5,  gap:40.3,  risk:'Low',      soc:0},
+];
+
+// ── RENDER TABLE ───────────────────────────────────────────────
+let tableData = [...suppliers];
+let sortDir = {};
+
+function renderTable(data) {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = data.map((s, i) => {
+    const tc = tierClass(s.score);
+    const sc = scoreColor(s.score);
+    return `<tr data-tier="${tierLabel(s.score)}">
+      <td style="color:var(--muted);font-weight:600">${i+1}</td>
+      <td style="font-weight:600">${s.name}</td>
+      <td>${s.region}</td>
+      <td>${s.cat}</td>
+      <td>${s.orders}</td>
+      <td style="font-weight:600;color:${s.ontime>=85?'var(--green)':s.ontime>=75?'var(--blue)':'var(--red)'}">${s.ontime}%</td>
+      <td>${s.delay.toFixed(1)}d</td>
+      <td style="color:${s.defect>1.0?'var(--red)':'var(--muted)'}">${s.defect}%</td>
+      <td>
+        <div class="score-bar">
+          <div class="score-bar-bg"><div class="score-bar-fill" style="width:${s.score}%;background:${sc}"></div></div>
+          <span style="font-weight:600;color:${sc};min-width:30px">${s.score}</span>
+        </div>
+      </td>
+      <td><span class="badge ${tc}">${tierLabel(s.score)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTable(tier, btn) {
+  document.querySelectorAll('.filters .filter-btn').forEach(b => {
+    if(b.closest('section') === btn.closest('section')) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  const filtered = tier === 'all' ? suppliers : suppliers.filter(s => tierLabel(s.score).startsWith(tier));
+  renderTable(filtered);
+}
+
+function sortTable(col) {
+  sortDir[col] = !sortDir[col];
+  const keys = ['rank','name','region','cat','orders','ontime','delay','defect','score','tier'];
+  const key = keys[col];
+  const data = [...document.querySelectorAll('#tableBody tr')].map(tr => {
+    return suppliers.find(s => s.name === tr.cells[1].textContent);
+  }).filter(Boolean);
+  data.sort((a,b) => {
+    let va = a[key] ?? tierLabel(a.score);
+    let vb = b[key] ?? tierLabel(b.score);
+    if(typeof va === 'number') return sortDir[col] ? va - vb : vb - va;
+    return sortDir[col] ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+  renderTable(data);
+}
+
+renderTable(suppliers);
+
+// ── RENDER INVENTORY RISK CARDS ────────────────────────────────
+function renderRisk(filter) {
+  const grid = document.getElementById('riskGrid');
+  const data = filter === 'all' ? inventory : inventory.filter(i => i.risk === filter);
+  grid.innerHTML = data.map(item => {
+    const gapText = item.gap < 0
+      ? `<span style="color:var(--red)">−${Math.abs(item.gap)}d</span>`
+      : `<span style="color:var(--green)">+${item.gap}d</span>`;
+    return `<div class="risk-card ${item.risk.toLowerCase()}">
+      <div class="sku">${item.sku}</div>
+      <div class="name">${item.name}</div>
+      <div class="supplier">${item.supplier}</div>
+      <div class="stats">
+        <div class="stat">DOS <span>${item.dos}d</span></div>
+        <div class="stat">LT <span>${item.lt}d</span></div>
+        <div class="stat">Gap ${gapText}</div>
+        <div class="stat">Stockouts <span style="color:${item.soc>5?'var(--red)':'inherit'}">${item.soc}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterRisk(level, btn) {
+  document.querySelectorAll('#riskGrid').forEach(() => {});
+  btn.closest('.filters').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRisk(level);
+}
+
+renderRisk('all');
+
+// ── CHARTS ──────────────────────────────────────────────────────
+// 1. Trend chart
+new Chart(document.getElementById('trendChart'), {
+  type: 'bar',
+  data: {
+    labels: months,
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Spend ($k)',
+        data: spendK,
+        backgroundColor: '#CBD5E1',
+        yAxisID: 'y2',
+        order: 3,
+        barPercentage: 0.8,
+      },
+      {
+        type: 'line',
+        label: 'On-Time %',
+        data: onTimePct,
+        borderColor: '#1D4E89',
+        backgroundColor: 'rgba(29,78,137,0.08)',
+        borderWidth: 2,
+        pointRadius: 2,
+        tension: 0.3,
+        yAxisID: 'y1',
+        order: 1,
+        fill: false,
+      },
+      {
+        type: 'line',
+        label: '3-Mo Avg',
+        data: rolling3,
+        borderColor: '#2D936C',
+        borderWidth: 1.5,
+        borderDash: [5,3],
+        pointRadius: 0,
+        tension: 0.4,
+        yAxisID: 'y1',
+        order: 2,
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } },
+      y1: { position: 'left',  min: 60, max: 105, ticks: { callback: v => v + '%', font: { size: 10 } } },
+      y2: { position: 'right', grid: { display: false }, ticks: { font: { size: 10 }, callback: v => '$'+v+'k' } }
+    }
+  }
+});
+
+// 2. Category chart
+const cats    = ['Metals','Logistics','Electronics','Packaging','Raw Materials','Mechanical'];
+const catPcts = [92.0, 89.4, 84.6, 82.0, 78.2, 77.4];
+new Chart(document.getElementById('catChart'), {
+  type: 'bar',
+  data: {
+    labels: cats,
+    datasets: [{
+      label: 'On-Time %',
+      data: catPcts,
+      backgroundColor: catPcts.map(v => v >= 88 ? '#2D936C' : v >= 80 ? '#1D4E89' : '#D97706'),
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { min: 60, max: 100, ticks: { callback: v => v + '%', font: { size: 10 } } },
+      y: { ticks: { font: { size: 11 } }, grid: { display: false } }
+    }
+  }
+});
+
+// 3. Bubble chart
+new Chart(document.getElementById('bubbleChart'), {
+  type: 'bubble',
+  data: {
+    datasets: suppliers.map(s => ({
+      label: s.name.split(' ')[0],
+      data: [{ x: s.ontime, y: s.defect, r: Math.sqrt(s.spend) * 1.8 }],
+      backgroundColor: scoreColor(s.score) + 'AA',
+      borderColor: scoreColor(s.score),
+      borderWidth: 1.5,
+    }))
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => {
+            const s = suppliers[ctx.datasetIndex];
+            return [`${s.name}`, `On-Time: ${s.ontime}%`, `Defect: ${s.defect}%`, `Score: ${s.score}`];
+          }
+        }
+      }
+    },
+    scales: {
+      x: { min: 58, max: 102, title: { display: true, text: 'On-Time Rate (%)', font: { size: 11 } }, ticks: { callback: v => v + '%', font: { size: 10 } } },
+      y: { min: 0.5, max: 1.25, title: { display: true, text: 'Defect Rate (%)', font: { size: 11 } }, ticks: { font: { size: 10 } } }
+    },
+    layout: { padding: 10 }
+  }
+});
+
+// 4. Region chart
+const regions = ['Northeast','Southeast','Midwest','West','South'];
+const lateCounts = [52, 41, 38, 45, 31];
+new Chart(document.getElementById('regionChart'), {
+  type: 'bar',
+  data: {
+    labels: regions,
+    datasets: [{
+      label: 'Late Orders',
+      data: lateCounts,
+      backgroundColor: ['#DC2626CC','#D97706CC','#1D4E89CC','#DC2626CC','#2D936CAA'],
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { ticks: { font: { size: 10 } } }
+    }
+  }
+});
+</script>
+</body>
+</html>
