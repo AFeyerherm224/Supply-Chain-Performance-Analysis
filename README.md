@@ -24,22 +24,6 @@ and BlueStar Components alone could recover ~$9M in at-risk spend.
 
 ---
 
-## Skills Demonstrated
-
-| Skill | Where |
-|-------|-------|
-| SQL (CTEs, window functions, JOINs) | `sql/supply_chain_analysis.sql` |
-| Python — pandas, numpy | `notebooks/supply_chain_analysis.py` |
-| Data cleaning & outlier detection | Section 1 of notebook |
-| Exploratory data analysis | Section 2 of notebook |
-| KPI design & scorecard methodology | Section 3 + SQL Section 2 |
-| In-memory SQL via SQLite | Section 4 of notebook |
-| Data visualization (matplotlib, seaborn) | Section 5 of notebook |
-| Interactive dashboard (HTML/JS/Chart.js) | `dashboard/index.html` |
-| Structured project documentation | This README |
-
----
-
 ## File Structure
 
 ```
@@ -51,9 +35,9 @@ supply-chain-analytics/
 │   ├── purchase_orders.csv     # 1,200 order transactions
 │   └── inventory.csv           # 50 SKU inventory positions
 ├── sql/
-│   └── supply_chain_analysis.sql   # 7 analytical SQL queries
+│   └── supply_chain_analysis.sql   # 7 SQL queries
 ├── notebooks/
-│   └── supply_chain_analysis.py    # Full Python analysis (6 sections)
+│   └── supply_chain_analysis.py    # Full Python analysis
 ├── dashboard/
 │   └── index.html              # Interactive browser dashboard
 └── outputs/
@@ -83,7 +67,7 @@ python notebooks/supply_chain_analysis.py
 
 ### SQL Analysis
 
-The SQL file is written for **SQLite** (default) with PostgreSQL dialect notes inline.
+The SQL file is written for **SQLite** with PostgreSQL dialect notes inline.
 
 ```bash
 # Run in SQLite CLI after importing CSVs, or use a tool like DBeaver / DB Browser
@@ -98,7 +82,7 @@ Open `dashboard/index.html` in any modern browser — no server required.
 
 ## SQL Highlights
 
-The SQL file contains 7 queries showcasing key techniques:
+The SQL file contains 7 queries:
 
 1. **Supplier Performance Scorecard** — multi-table JOIN + composite weighted score
 2. **Monthly Delivery Trend** — `STRFTIME` grouping, running aggregates
