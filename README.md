@@ -76,7 +76,7 @@ sqlite3 supply_chain.db < sql/supply_chain_analysis.sql
 
 ### Dashboard
 
-Open `dashboard/index.html` in any modern browser — no server required.
+Open `dashboard/index.html` in browser of choice.
 
 ---
 
